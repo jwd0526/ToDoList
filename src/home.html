@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ToDo List</title>
+<style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 20px;
+        background-color: #f9f9f9;
+    }
+
+    #task-manager-container {
+        margin-bottom: 20px;
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, .1);
+        margin: 20px;
+    }
+
+    #task-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    #task-table th, #task-table td {
+        text-align: left;
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    #task-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+
+    .delete-column span {
+        display: inline-block;
+        padding: 5px;
+        color: #fff;
+        background-color: #ff4d4d;
+        border-radius: 50%;
+        cursor: pointer;
+    }
+
+    .task-column, .progress-column, .deadline-column {
+        width: 30%;
+    }
+
+    .delete-column {
+        text-align: center;
+        width: 10%;
+    }
+
+    .newly-added {
+        background-color: #e7f4e4;
+    }
+
+    .not-started {
+        color: #d9534f;
+    }
+
+    .in-progress {
+        color: #f0ad4e;
+    }
+
+    .completed {
+        color: #5cb85c;
+    }
+
+    .missed {
+        color: #dc3545;
+    }
+
+    .example-row {
+        background-color: #fff;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, .4);
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        border-radius: 10px;
+    }
+
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+    .close:hover,
+    .close:focus {
+        color: #000;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    select,
+    button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    button {
+        background-color: #007bff;
+        color: #fff;
+        transition: background-color .3s ease;
+    }
+
+    button:hover {
+        background-color: #0056b3;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    select {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        width: calc(25% - 22.5px); /* Adjust the width here */
+        margin-bottom: 10px;
+    }
+
+    input[type="datetime-local"] {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        width: calc(25% - 22.5px); /* Adjust the width here */
+        margin-bottom: 10px;
+    }
+
+    select {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg width='12' height='6' viewBox='0 0 12 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 0L0 6h12L6 0z' fill='%23007bff'/%3E%3C/svg%3E");
+        background-size: 10px;
+        background-repeat: no-repeat;
+        background-position-x: calc(100% - 10px);
+        background-position-y: center;
+        padding-right: 30px;
+        width: calc(25% - 22.5px); /* Adjust the width here */
+    }
+
+    button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        background-color: #007bff;
+        color: #fff;
+        transition: background-color .3s ease;
+        width: calc(25% - 22.5px); /* Adjust the width here */
+    }
+
+    button:hover {
+        background-color: #0056b3;
+    }
+    
+</style>
+
+</head>
+<body>
+
+<div id="task-manager-container">
+    <input type="text" id="taskName" placeholder="Enter Task Name">
+    <input type="datetime-local" id="deadline">
+    <select id="status">
+        <option value="Not Started">Not Started</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Completed">Completed</option>
+    </select>
+    <button onclick="addTask()">Add Task</button>
+</div>
+
+<table id="task-table">
+    <tr>
+        <th>Task</th>
+        <th>Status</th>
+        <th>Deadline</th>
+        <th></th>
+    </tr>
+</table>
+
+<div id="myModal" class="modal"></div>
+
+<script>
+    // Function to save table data to localStorage
+    function saveTableData() {
+        var tableData = [];
+        var table = document.getElementById("task-table");
+        var rows = table.querySelectorAll(".task-row");
+
+        rows.forEach(function(row) {
+            var rowData = {};
+            rowData.taskName = row.querySelector(".task-column").textContent;
+            rowData.status = row.querySelector(".progress-column").textContent;
+            rowData.deadline = row.querySelector(".deadline-column").textContent;
+            tableData.push(rowData);
+        });
+
+        localStorage.setItem("taskTableData", JSON.stringify(tableData));
+    }
+
+    // Function to load table data from localStorage
+    function loadTableData() {
+        var tableData = JSON.parse(localStorage.getItem("taskTableData"));
+        if (tableData) {
+            var table = document.getElementById("task-table");
+
+            tableData.forEach(function(rowData) {
+                var row = table.insertRow();
+                row.classList.add("task-row");
+                var cell1 = row.insertCell(0);
+                cell1.classList.add("task-column");
+                var cell2 = row.insertCell(1);
+                cell2.classList.add("progress-column");
+                var cell3 = row.insertCell(2);
+                cell3.classList.add("deadline-column");
+                var cell4 = row.insertCell(3);
+                cell4.classList.add("delete-column");
+
+                cell1.textContent = rowData.taskName;
+                cell2.textContent = rowData.status;
+                cell3.textContent = rowData.deadline;
+
+                cell2.classList.add(rowData.status.toLowerCase().replace(" ", "-"));
+
+                var deleteBtn = document.createElement("span");
+                deleteBtn.innerHTML = "&#10006;";
+                deleteBtn.style.cursor = "pointer";
+
+                deleteBtn.onclick = function() {
+                    row.remove();
+                    saveTableData(); // Save data after deleting a row
+                };
+
+                cell4.appendChild(deleteBtn);
+
+                cell2.onclick = function() {
+                    openModal();
+                };
+            });
+        }
+    }
+
+    // Call loadTableData when the page is loaded
+    window.onload = loadTableData;
+
+    // Save table data before page is unloaded
+    window.onbeforeunload = saveTableData;
+
+    // Function to open the modal
+    function openModal() {
+        var modal = document.getElementById("myModal");
+        modal.innerHTML = `
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <p>Choose new status:</p>
+                <select id="newStatusSelect">
+                    <option value="Not Started">Not Started</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                </select>
+                <button id="confirmBtn" onclick="updateStatus()">Confirm</button>
+            </div>
+        `;
+        modal.style.display = "block";
+    }
+
+    // Function to close the modal
+    function closeModal() {
+        var modal = document.getElementById("myModal");
+        modal.style.display = "none";
+    }
+
+    // Close the modal when clicked outside of it
+    window.onclick = function(event) {
+        var modal = document.getElementById("myModal");
+        if (event.target == modal) {
+            closeModal();
+        }
+    }
+
+    setInterval(updateDeadlineStatus, 60000);
+
+    function updateDeadlineStatus() {
+        var table = document.getElementById("task-table");
+        var rows = table.querySelectorAll(".task-row"); // Select all task rows
+
+        rows.forEach(function(row) {
+            var deadlineCell = row.querySelector(".deadline-column");
+            var deadlineText = deadlineCell.textContent.trim();
+            if (!deadlineText) return; // Skip empty cells
+
+            // Assuming deadlineText is in 'MM/DD/YYYY HH:MM AM/PM' format in EST
+            var deadline = new Date(deadlineText + " EST"); // Append 'EST' to parse as Eastern Time
+
+            // Convert both current time and deadline to UTC for comparison
+            var currentTime = new Date().toUTCString();
+            var deadlineUTC = deadline.toUTCString();
+
+            if (new Date(currentTime) > new Date(deadlineUTC)) {
+                var statusCell = row.querySelector(".progress-column");
+                // Update status to "Missed" if it's not already "Completed"
+                if (statusCell.textContent.trim() !== "Completed") {
+                    statusCell.textContent = "Missed";
+                    statusCell.classList.remove("in-progress", "not-started");
+                    statusCell.classList.add("missed");
+                }
+            }
+        });
+    }
+
+
+    // Function to add task to the table
+    function addTask() {
+        var taskName = document.getElementById("taskName").value;
+        var deadline = document.getElementById("deadline").value;
+        var status = document.getElementById("status").value;
+
+        var table = document.getElementById("task-table");
+
+        // Remove the example row if it exists
+        var exampleRow = table.querySelector(".example-row");
+        if (exampleRow) {
+            exampleRow.remove();
+        }
+
+        // Insert a new row at the end of the table
+        var row = table.insertRow(); // Don't specify an index
+        row.classList.add("newly-added", "task-row");
+        var cell1 = row.insertCell(0);
+        cell1.classList.add("task-column");
+        var cell2 = row.insertCell(1);
+        cell2.classList.add("progress-column");
+        var cell3 = row.insertCell(2); // Added for deadline column
+        cell3.classList.add("deadline-column");
+        var cell4 = row.insertCell(3); // Added for delete button column
+        cell4.classList.add("delete-column");
+
+        cell1.textContent = taskName;
+        cell2.textContent = status;
+        cell3.textContent = formatDeadline(deadline); // Format deadline before adding to cell
+
+        // Assign class based on status
+        cell2.classList.add(status.toLowerCase().replace(" ", "-"));
+
+        // Add X icon for delete
+        var deleteBtn = document.createElement("span");
+        deleteBtn.innerHTML = "&#10006;"; // X icon HTML entity
+        deleteBtn.style.cursor = "pointer";
+        
+        deleteBtn.onclick = function() {
+            row.remove();
+        };
+        
+        cell4.appendChild(deleteBtn);
+
+        cell2.onclick = function() {
+            openModal();
+        };
+
+        closeModal(); // Close modal after adding task
+
+        updateDeadlineStatus(); // Update deadline status after adding task
+    }
+
+    function updateStatus() {
+        var cell = document.querySelector(".progress-column");
+        var newStatus = document.getElementById("newStatusSelect").value;
+        var currentStatus = cell.textContent.trim();
+
+        if (newStatus && newStatus !== currentStatus) {
+            cell.textContent = newStatus; // Update the cell text
+            cell.className = "progress-column"; // Reset class
+            cell.classList.add(newStatus.toLowerCase().replace(" ", "-")); // Add new status class
+        }
+
+        closeModal(); // Close modal after updating status
+    }
+
+    // Function to format deadline
+    function formatDeadline(deadline) {
+        var date = new Date(deadline);
+        var options = { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true };
+        return date.toLocaleString('en-US', options);
+    };
+</script>
+
+</body>
+</html>
